@@ -2,61 +2,70 @@
 Soccer IDSS — Data Pipeline CLI
 
 Usage:
-  python main.py db-init            Apply schema migration to Postgres
-  python main.py scrape sofascore   Scrape SofaScore stats → cache + DB
-  python main.py scrape transfermarkt  Scrape Transfermarkt → cache + DB
-  python main.py transform          Compute per-90 stats → player_features
-  python main.py build-features     MinMax-scale → write parquet + DB vectors
-  python main.py pipeline           Run all four steps end-to-end
+  uv run python main.py setup    First-time setup (.env, Postgres, schema)
+  uv run python main.py scrape sofascore
+  uv run python main.py pipeline
 """
 
-import subprocess
+import shutil
 import sys
-from pathlib import Path
 
 import click
+import psycopg2
 from loguru import logger
 
-from config import DATABASE_URL, BASE_DIR
+from config import BASE_DIR
 
+MIGRATION = BASE_DIR / "migrations" / "001_initial_schema.sql"
 
-# ──────────────────────────────────────────────────────────────────
-# Logging setup
-# ──────────────────────────────────────────────────────────────────
 
 logger.remove()
 logger.add(sys.stderr, level="INFO", format="<level>{level}</level> | {message}")
 logger.add(BASE_DIR / "pipeline.log", level="DEBUG", rotation="10 MB")
 
 
-# ──────────────────────────────────────────────────────────────────
-# CLI
-# ──────────────────────────────────────────────────────────────────
+def _apply_schema(url: str) -> None:
+    if not MIGRATION.exists():
+        raise FileNotFoundError(f"Migration not found: {MIGRATION}")
+
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            for part in MIGRATION.read_text().split(";"):
+                if any(
+                    line.strip() and not line.strip().startswith("--")
+                    for line in part.splitlines()
+                ):
+                    cur.execute(part)
+    finally:
+        conn.close()
+
 
 @click.group()
 def cli():
     """Soccer IDSS data pipeline."""
 
 
-@cli.command("db-init")
-def db_init():
-    """Apply migrations/001_initial_schema.sql to the configured Postgres DB."""
-    migration = BASE_DIR / "migrations" / "001_initial_schema.sql"
-    if not migration.exists():
-        logger.error(f"Migration not found: {migration}")
-        sys.exit(1)
+@cli.command("setup")
+def setup():
+    """First-time setup: .env + schema."""
+    from config import DATABASE_URL
+
+    env = BASE_DIR / ".env"
+    example = BASE_DIR / ".env.example"
+    if not env.exists():
+        if not example.exists():
+            raise click.ClickException(f"Missing {example}")
+        shutil.copy(example, env)
+        logger.info("Created .env from .env.example")
 
     logger.info(f"Applying schema to {DATABASE_URL}")
-    result = subprocess.run(
-        ["psql", DATABASE_URL, "-f", str(migration)],
-        capture_output=True, text=True,
-    )
-    if result.returncode != 0:
-        logger.error(result.stderr)
-        sys.exit(result.returncode)
-    logger.info("Schema applied successfully")
-    if result.stdout:
-        print(result.stdout)
+    try:
+        _apply_schema(DATABASE_URL)
+    except Exception as exc:
+        raise click.ClickException(str(exc)) from exc
+    logger.info("Setup complete — run `uv run python main.py pipeline` to ingest data")
 
 
 @cli.group()

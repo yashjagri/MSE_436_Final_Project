@@ -11,15 +11,48 @@ This repo currently covers **data ingestion and transformation**: scraping playe
 
 ## Setup
 
-```bash
-pip install -r requirements.txt
-cp .env.example .env   # set DATABASE_URL if needed
+**Prerequisites:** [uv](https://docs.astral.sh/uv/), Python 3.11+, PostgreSQL 16.
 
-createdb soccer_idss          # one-time, if the DB doesn't exist yet
-python main.py db-init        # applies migrations/001_initial_schema.sql via psql
+### 1. Install uv
+
+**macOS / Linux:**
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-`db-init` applies the schema only — it does not create the database. Requires PostgreSQL with `psql` on your PATH.
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### 2. Install and start PostgreSQL
+
+**macOS (Homebrew):**
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+createdb soccer_idss
+```
+
+**Windows:**
+
+Download and run the installer from [postgresql.org](https://www.postgresql.org/download/windows/). The service starts automatically. Then open a terminal and run:
+
+```bash
+createdb soccer_idss
+```
+
+> If `createdb` is not found, add the Postgres `bin` folder to your PATH (e.g. `C:\Program Files\PostgreSQL\16\bin`).
+
+### 3. Install deps and apply the schema
+
+```bash
+uv sync
+uv run python main.py setup
+```
 
 ---
 
@@ -27,10 +60,10 @@ python main.py db-init        # applies migrations/001_initial_schema.sql via ps
 
 ```bash
 # First run (or full refresh): scrape → transform → build-features
-python main.py pipeline
+uv run python main.py pipeline
 
 # Rebuild from existing DB/cache (no network)
-python main.py pipeline --skip-scrape
+uv run python main.py pipeline --skip-scrape
 ```
 
 Or programmatically:

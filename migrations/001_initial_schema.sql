@@ -1,6 +1,5 @@
 -- Soccer IDSS Initial Schema
--- Run once against a fresh database:
---   psql soccer_idss < migrations/001_initial_schema.sql
+-- Applied by: python main.py setup
 
 -- ─────────────────────────────────────────────────────────────
 -- Reference tables
