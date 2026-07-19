@@ -1,6 +1,8 @@
-import { POSITIONS, POSITION_FEATURES, FEATURE_LABELS } from "../App.jsx";
+import { POSITIONS, LEAGUES, POSITION_FEATURES, FEATURE_LABELS } from "../App.jsx";
 
-// Left control panel: position, budget, age range, per-feature weights.
+// Left control panel: position, budget, age range, minutes, leagues, and
+// per-feature weights. Every change re-runs the search automatically
+// (debounced in App); the button is an explicit "run now".
 export default function Sidebar({
   position,
   onPositionChange,
@@ -8,6 +10,10 @@ export default function Sidebar({
   onBudgetChange,
   ageRange,
   onAgeRangeChange,
+  minMinutes,
+  onMinMinutesChange,
+  leagues,
+  onLeaguesChange,
   weights,
   onWeightsChange,
   onSearch,
@@ -18,14 +24,24 @@ export default function Sidebar({
   const setWeight = (feature, value) =>
     onWeightsChange({ ...weights, [feature]: value });
 
+  const toggleLeague = (league) => {
+    const next = leagues.includes(league)
+      ? leagues.filter((l) => l !== league)
+      : [...leagues, league];
+    if (next.length > 0) onLeaguesChange(next); // never allow zero leagues
+  };
+
   return (
     <aside
       className="w-80 shrink-0 border-r p-6"
       style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }}
     >
       <h2 className="text-lg font-semibold">Requirements</h2>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        The shortlist updates as you adjust.
+      </p>
 
-      <label className="mt-6 block text-sm font-medium">
+      <label className="mt-5 block text-sm font-medium">
         Position
         <select
           value={position}
@@ -92,6 +108,36 @@ export default function Sidebar({
         </label>
       </fieldset>
 
+      <label className="mt-5 block text-sm font-medium">
+        Minimum minutes: {minMinutes}
+        <input
+          type="range"
+          min="0"
+          max="3000"
+          step="50"
+          value={minMinutes}
+          onChange={(e) => onMinMinutesChange(Number(e.target.value))}
+          className="mt-1 w-full"
+        />
+        <span className="text-xs font-normal" style={{ color: "var(--text-muted)" }}>
+          Filters out small-sample per-90 noise
+        </span>
+      </label>
+
+      <fieldset className="mt-5">
+        <legend className="text-sm font-medium">Leagues</legend>
+        {LEAGUES.map((league) => (
+          <label key={league} className="mt-1.5 flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={leagues.includes(league)}
+              onChange={() => toggleLeague(league)}
+            />
+            {league}
+          </label>
+        ))}
+      </fieldset>
+
       <fieldset className="mt-5">
         <legend className="text-sm font-medium">Attribute priorities</legend>
         <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
@@ -124,7 +170,7 @@ export default function Sidebar({
         className="mt-6 w-full rounded-md py-2 text-sm font-semibold text-white disabled:opacity-50"
         style={{ background: "var(--series-1)" }}
       >
-        {loading ? "Searching…" : "Search"}
+        {loading ? "Searching…" : "Search now"}
       </button>
     </aside>
   );

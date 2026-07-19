@@ -352,7 +352,14 @@ INTEGER_COLUMNS = ("minutes_played", "age", "saves", "market_value_eur")
 
 
 def upsert_players(client, df):
-    """Upsert the merged rows into the players table, keyed on join_key."""
+    """Upsert the merged rows into the players table, keyed on join_key.
+
+    Stamps every row with updated_at so the monitoring dashboard can report
+    database freshness.
+    """
+    from datetime import datetime, timezone
+    stamp = datetime.now(timezone.utc).isoformat()
+    df = df.assign(updated_at=stamp)
     records = df.astype(object).where(pd.notnull(df), None).to_dict("records")
     # pandas represents nullable ints as floats (3420.0); Postgres integer
     # columns reject that string form, so coerce them back.

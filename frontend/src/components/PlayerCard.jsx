@@ -11,13 +11,16 @@ const badgeStyle = (score) => {
 const formatMarketValue = (eur) =>
   eur == null ? "—" : `€${(eur / 1_000_000).toFixed(1)}m`;
 
-// One shortlist entry: identity line, fit badge, and the player-vs-ideal
-// feature comparison bars.
-export default function PlayerCard({ player, rank }) {
+// One shortlist entry: identity line, fit badge, plain-language reasons,
+// and the player-vs-ideal feature comparison bars.
+export default function PlayerCard({ player, rank, compared, onToggleCompare }) {
   return (
     <div
       className="rounded-xl border p-4"
-      style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }}
+      style={{
+        background: "var(--surface-1)",
+        borderColor: compared ? "var(--series-1)" : "var(--hairline)",
+      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -39,6 +42,23 @@ export default function PlayerCard({ player, rank }) {
         </span>
       </div>
 
+      {player.reasons?.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {player.reasons.map((reason) => (
+            <li
+              key={reason}
+              className="rounded-full border px-2 py-0.5 text-[11px]"
+              style={{
+                borderColor: "var(--hairline)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              {reason}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <div className="mt-4 space-y-3">
         {player.breakdown.map((item) => (
           <FeatureBar
@@ -51,23 +71,29 @@ export default function PlayerCard({ player, rank }) {
       </div>
 
       <div
-        className="mt-3 flex gap-4 border-t pt-2 text-[11px]"
+        className="mt-3 flex items-center justify-between border-t pt-2 text-[11px]"
         style={{ borderColor: "var(--hairline)", color: "var(--text-muted)" }}
       >
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ background: "var(--series-1)" }}
-          />
-          Player
+        <span className="flex gap-4">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: "var(--series-1)" }}
+            />
+            Player
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ background: "var(--benchmark)" }}
+            />
+            Ideal
+          </span>
         </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ background: "var(--benchmark)" }}
-          />
-          Ideal
-        </span>
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input type="checkbox" checked={compared} onChange={onToggleCompare} />
+          Compare
+        </label>
       </div>
     </div>
   );
