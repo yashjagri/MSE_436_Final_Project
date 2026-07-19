@@ -1,4 +1,15 @@
+.env
 .venv/
 __pycache__/
 *.egg-info/
 uv.lock
+
+# Raw API responses and pipeline output
+pipeline/cache/*.json
+unmatched_players.log
+data/
+pipeline.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
