@@ -91,11 +91,17 @@ class TransfermarktScraper(RateLimitedSession):
             return clubs
 
         for row in table.find_all("tr", {"class": ["odd", "even"]}):
-            link = row.find("a", {"class": "vereinprofil_tooltip"})
+            # Transfermarkt dropped the vereinprofil_tooltip class (2025
+            # template); match the club link by its href pattern instead:
+            # /{slug}/startseite/verein/{id}
+            link = None
+            for a in row.find_all("a", href=True):
+                if "/startseite/verein/" in a["href"] and a.get_text(strip=True):
+                    link = a
+                    break
             if link is None:
                 continue
             href = link.get("href", "")
-            # href pattern: /{slug}/startseite/verein/{id}
             m = re.search(r"/verein/(\d+)", href)
             if not m:
                 continue
@@ -158,24 +164,35 @@ class TransfermarktScraper(RateLimitedSession):
             slug = href.split("/")[1] if "/" in href else ""
             name = link.get_text(strip=True)
 
-            # Position
+            # Position: the inline table inside the posrela cell has the
+            # player link in its first row and the position text in its last.
             pos_cell = row.find("td", {"class": "posrela"})
             position = ""
             if pos_cell:
                 pos_tbl = pos_cell.find("table")
                 if pos_tbl:
-                    pos_link = pos_tbl.find("a")
-                    position = pos_link.get_text(strip=True) if pos_link else ""
+                    inner_rows = pos_tbl.find_all("tr")
+                    if inner_rows:
+                        position = inner_rows[-1].get_text(strip=True)
 
-            # Date of birth
+            # Date of birth: rendered as "17/08/1993 (31)" (or "Aug 17, 1993
+            # (31)" in the US locale). The trailing "(age)" distinguishes it
+            # from the same-shaped "joined" date cell, so require it.
             dob: date | None = None
-            dob_cell = row.find("td", {"class": "zentriert"})
-            if dob_cell:
-                dob_str = dob_cell.get_text(strip=True)
-                try:
-                    dob = datetime.strptime(dob_str, "%b %d, %Y").date()
-                except ValueError:
-                    pass
+            for cell in row.find_all("td", {"class": "zentriert"}):
+                text = cell.get_text(strip=True)
+                m_dob = re.match(r"^(.+?)\s*\(\d+\)$", text)
+                if not m_dob:
+                    continue
+                dob_str = m_dob.group(1).strip()
+                for fmt in ("%d/%m/%Y", "%b %d, %Y"):
+                    try:
+                        dob = datetime.strptime(dob_str, fmt).date()
+                        break
+                    except ValueError:
+                        continue
+                if dob:
+                    break
 
             # Nationality (flag img alt text)
             nat = ""
