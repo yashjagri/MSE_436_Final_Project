@@ -20,6 +20,9 @@ export default function Sidebar({
   loading,
 }) {
   const [minAge, maxAge] = ageRange;
+  const AGE_MIN = 15;
+  const AGE_MAX = 40;
+  const pct = (v) => ((v - AGE_MIN) / (AGE_MAX - AGE_MIN)) * 100;
 
   const setWeight = (feature, value) =>
     onWeightsChange({ ...weights, [feature]: value });
@@ -74,38 +77,56 @@ export default function Sidebar({
         <legend className="text-sm font-medium">
           Age range: {minAge}–{maxAge}
         </legend>
-        <label className="mt-1 block text-xs" style={{ color: "var(--text-secondary)" }}>
-          Minimum age
+        {/* Dual-thumb slider: two range inputs stacked on one track, with a
+            filled band between the thumbs so the selected range reads at a
+            glance. Thumbs stay clickable via pointer-events toggling. */}
+        <div className="dual-range relative mt-3 h-5">
+          <div
+            className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full"
+            style={{ background: "var(--hairline)" }}
+          />
+          <div
+            className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full"
+            style={{
+              left: `${pct(minAge)}%`,
+              right: `${100 - pct(maxAge)}%`,
+              background: "var(--series-1)",
+            }}
+          />
           <input
             type="range"
-            min="15"
-            max="40"
+            min={AGE_MIN}
+            max={AGE_MAX}
             value={minAge}
+            aria-label="Minimum age"
             onChange={(e) =>
               onAgeRangeChange([
                 Math.min(Number(e.target.value), maxAge),
                 maxAge,
               ])
             }
-            className="w-full"
           />
-        </label>
-        <label className="mt-1 block text-xs" style={{ color: "var(--text-secondary)" }}>
-          Maximum age
           <input
             type="range"
-            min="15"
-            max="40"
+            min={AGE_MIN}
+            max={AGE_MAX}
             value={maxAge}
+            aria-label="Maximum age"
             onChange={(e) =>
               onAgeRangeChange([
                 minAge,
                 Math.max(Number(e.target.value), minAge),
               ])
             }
-            className="w-full"
           />
-        </label>
+        </div>
+        <div
+          className="mt-1 flex justify-between text-[10px]"
+          style={{ color: "var(--text-muted)" }}
+        >
+          <span>{AGE_MIN}</span>
+          <span>{AGE_MAX}</span>
+        </div>
       </fieldset>
 
       <label className="mt-5 block text-sm font-medium">
