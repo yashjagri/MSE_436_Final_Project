@@ -5,10 +5,10 @@ __pycache__/
 uv.lock
 
 # Raw API responses and pipeline output
-pipeline/cache/*.json
-unmatched_players.log
-data/
-pipeline.log
+# pipeline/cache/*.json
+# unmatched_players.log
+# data/
+# pipeline.log
 
 # Frontend
 frontend/node_modules/
