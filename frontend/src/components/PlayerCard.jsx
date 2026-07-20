@@ -11,15 +11,62 @@ const badgeStyle = (score) => {
 const formatMarketValue = (eur) =>
   eur == null ? "—" : `€${(eur / 1_000_000).toFixed(1)}m`;
 
+// Renders how a player's rank shifted since the last search: ▲/▼ with the
+// number of places, or a "new" tag for a player that just entered the list.
+// `delta > 0` means the player climbed. Returns null when nothing changed.
+function RankDelta({ delta }) {
+  if (delta == null || delta === 0) return null;
+  if (delta === "new")
+    return (
+      <span
+        className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+        style={{ background: "var(--series-1)", color: "#fff" }}
+        title="New to the shortlist since your last change"
+      >
+        new
+      </span>
+    );
+  const up = delta > 0;
+  return (
+    <span
+      className="text-[11px] font-semibold tabular-nums"
+      style={{ color: up ? "var(--status-good)" : "var(--status-critical)" }}
+      title={`Moved ${up ? "up" : "down"} ${Math.abs(delta)} ${
+        Math.abs(delta) === 1 ? "place" : "places"
+      } since your last change`}
+    >
+      {up ? "▲" : "▼"}
+      {Math.abs(delta)}
+    </span>
+  );
+}
+
 // One shortlist entry: identity line, fit badge, plain-language reasons,
-// the player-vs-ideal comparison bars, and a recruitment decision row.
+// and the player-vs-ideal feature comparison bars.
 export default function PlayerCard({
-  player, rank, compared, onToggleCompare, decision, onDecide,
+  player,
+  rank,
+  rankDelta,
+  compared,
+  onToggleCompare,
+  onOpenDetail,
+  decision,
+  onDecide,
 }) {
   const status = decision?.status;
   return (
     <div
-      className="rounded-xl border p-4"
+      onClick={onOpenDetail}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetail();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      title="View player details"
+      className="cursor-pointer rounded-xl border p-4 transition-shadow hover:shadow-md"
       style={{
         background: "var(--surface-1)",
         // A decided player's border takes its status colour so the verdict
@@ -33,8 +80,12 @@ export default function PlayerCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          <p
+            className="flex items-center gap-1.5 text-xs"
+            style={{ color: "var(--text-muted)" }}
+          >
             #{rank}
+            <RankDelta delta={rankDelta} />
             {status && (
               <span
                 className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
@@ -107,7 +158,10 @@ export default function PlayerCard({
             Ideal
           </span>
         </span>
-        <label className="flex cursor-pointer items-center gap-1.5">
+        <label
+          className="flex cursor-pointer items-center gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
           <input type="checkbox" checked={compared} onChange={onToggleCompare} />
           Compare
         </label>

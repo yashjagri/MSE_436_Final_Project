@@ -3,6 +3,9 @@ import Sidebar from "./components/Sidebar.jsx";
 import PlayerCard from "./components/PlayerCard.jsx";
 import ComparePanel from "./components/ComparePanel.jsx";
 import MonitoringPanel from "./components/MonitoringPanel.jsx";
+import SkeletonCard from "./components/SkeletonCard.jsx";
+import EmptyState from "./components/EmptyState.jsx";
+import PlayerDetail from "./components/PlayerDetail.jsx";
 import DecisionsPanel from "./components/DecisionsPanel.jsx";
 
 const API_BASE = "http://localhost:8000";
@@ -107,10 +110,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [compareNames, setCompareNames] = useState([]);
+  const [detailPlayer, setDetailPlayer] = useState(null);
+  const [rankDeltas, setRankDeltas] = useState({});
   // Decision log, keyed by join_key, loaded once and kept in sync so the
   // shortlist remembers verdicts across searches and sessions.
   const [decisions, setDecisions] = useState({});
   const searchSeq = useRef(0);
+  // name -> rank (1-based) from the previous shortlist, so we can show how
+  // each player moved when a weight or filter changes. null = no baseline yet
+  // (first search after mount or a position change), which suppresses badges.
+  const prevRankRef = useRef(null);
 
   const loadDecisions = useCallback(async () => {
     try {
@@ -166,6 +175,8 @@ export default function App() {
     setPosition(next);
     setWeights(defaultWeights(next));
     setCompareNames([]);
+    prevRankRef.current = null; // different feature set — deltas aren't comparable
+    setRankDeltas({});
   };
 
   const runSearch = useCallback(async () => {
@@ -192,13 +203,34 @@ export default function App() {
           typeof body.detail === "string"
             ? body.detail
             : "The request was rejected — check your inputs.";
-        throw new Error(detail);
+        // 422 = the brief matched too few players; offer actionable fixes
+        // rather than a dead-end error box.
+        setError({ message: detail, actionable: response.status === 422 });
+        return;
       }
-      setResults(body.results ?? []);
+      const next = body.results ?? [];
+      // Compare against the previous shortlist to label rank movement.
+      const prev = prevRankRef.current;
+      if (prev) {
+        setRankDeltas(
+          Object.fromEntries(
+            next.map((p, i) => [
+              p.name,
+              prev[p.name] == null ? "new" : prev[p.name] - (i + 1),
+            ])
+          )
+        );
+      } else {
+        setRankDeltas({});
+      }
+      prevRankRef.current = Object.fromEntries(
+        next.map((p, i) => [p.name, i + 1])
+      );
+      setResults(next);
       setError(null);
     } catch (err) {
       if (seq !== searchSeq.current) return;
-      setError(err.message);
+      setError({ message: err.message, actionable: false });
     } finally {
       if (seq === searchSeq.current) setLoading(false);
     }
@@ -303,26 +335,54 @@ export default function App() {
               )}
             </div>
 
-            {error && (
+            {error && !error.actionable && (
               <div
                 className="mt-6 rounded-lg border p-4 text-sm"
                 style={{ borderColor: "var(--status-critical)" }}
               >
-                {error}
+                {error.message}
               </div>
             )}
 
-            {!error && results === null && (
+            {error && error.actionable && (
+              <EmptyState
+                message={error.message}
+                budgetM={budgetM}
+                onBudgetChange={setBudgetM}
+                ageRange={ageRange}
+                onAgeRangeChange={setAgeRange}
+                minMinutes={minMinutes}
+                onMinMinutesChange={setMinMinutes}
+                leagues={leagues}
+                onLeaguesChange={setLeagues}
+              />
+            )}
+
+            {!error && loading && !results?.length && (
+              <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))}
+              </div>
+            )}
+
+            {!error && !loading && results === null && (
               <p className="mt-10 text-sm" style={{ color: "var(--text-muted)" }}>
-                {loading ? "Scoring players…" : "Set your requirements in the sidebar."}
+                Set your requirements in the sidebar.
               </p>
             )}
 
             {!error && results !== null && results.length === 0 && (
-              <p className="mt-10 text-sm" style={{ color: "var(--text-muted)" }}>
-                No players matched these requirements. Try a higher budget or
-                wider filters.
-              </p>
+              <EmptyState
+                budgetM={budgetM}
+                onBudgetChange={setBudgetM}
+                ageRange={ageRange}
+                onAgeRangeChange={setAgeRange}
+                minMinutes={minMinutes}
+                onMinMinutesChange={setMinMinutes}
+                leagues={leagues}
+                onLeaguesChange={setLeagues}
+              />
             )}
 
             {!error && compared.length >= 2 && (
@@ -339,8 +399,10 @@ export default function App() {
                     key={player.name}
                     player={player}
                     rank={rank + 1}
+                    rankDelta={rankDeltas[player.name]}
                     compared={compareNames.includes(player.name)}
                     onToggleCompare={() => toggleCompare(player.name)}
+                    onOpenDetail={() => setDetailPlayer(player)}
                     decision={decisions[player.join_key]}
                     onDecide={(status) => decide(player, status)}
                   />
@@ -350,6 +412,10 @@ export default function App() {
           </>
         )}
       </main>
+
+      {detailPlayer && (
+        <PlayerDetail player={detailPlayer} onClose={() => setDetailPlayer(null)} />
+      )}
     </div>
   );
 }
