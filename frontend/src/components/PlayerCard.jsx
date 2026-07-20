@@ -53,7 +53,17 @@ export default function PlayerCard({
 }) {
   return (
     <div
-      className="rounded-xl border p-4"
+      onClick={onOpenDetail}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDetail();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      title="View player details"
+      className="cursor-pointer rounded-xl border p-4 transition-shadow hover:shadow-md"
       style={{
         background: "var(--surface-1)",
         borderColor: compared ? "var(--series-1)" : "var(--hairline)",
@@ -68,15 +78,7 @@ export default function PlayerCard({
             #{rank}
             <RankDelta delta={rankDelta} />
           </p>
-          <h3 className="text-base font-semibold">
-            <button
-              onClick={onOpenDetail}
-              className="text-left hover:underline"
-              title="View player details"
-            >
-              {player.name}
-            </button>
-          </h3>
+          <h3 className="text-base font-semibold">{player.name}</h3>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
             {player.position} · {player.league} · {player.age} yrs ·{" "}
             {formatMarketValue(player.market_value_eur)}
@@ -139,19 +141,13 @@ export default function PlayerCard({
             Ideal
           </span>
         </span>
-        <span className="flex items-center gap-3">
-          <button
-            onClick={onOpenDetail}
-            className="font-medium hover:underline"
-            style={{ color: "var(--series-1)" }}
-          >
-            Details
-          </button>
-          <label className="flex cursor-pointer items-center gap-1.5">
-            <input type="checkbox" checked={compared} onChange={onToggleCompare} />
-            Compare
-          </label>
-        </span>
+        <label
+          className="flex cursor-pointer items-center gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input type="checkbox" checked={compared} onChange={onToggleCompare} />
+          Compare
+        </label>
       </div>
     </div>
   );
