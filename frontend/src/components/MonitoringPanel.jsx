@@ -42,16 +42,6 @@ export default function MonitoringPanel({ apiBase }) {
   const { buckets, counts } = data.fit_score_distribution;
   const maxCount = Math.max(...counts, 1);
 
-  // Shared scale for the fairness mini-bars so pool/appearance shares are
-  // comparable across leagues, not just within a row.
-  const maxShare = Math.max(
-    1,
-    ...data.fairness_by_league.flatMap((r) => [
-      r.pool_share_pct,
-      r.appearance_share_pct,
-    ]),
-  );
-
   const tiles = [
     { label: "Searches logged", value: sys.searches_logged },
     {
@@ -154,20 +144,8 @@ export default function MonitoringPanel({ apiBase }) {
             <tr style={{ color: "var(--text-muted)" }}>
               <th className="py-1 text-left font-medium">League</th>
               <th className="py-1 text-right font-medium">Eligible</th>
-              <th className="py-1 text-left font-medium">
-                <span className="inline-flex items-center gap-2">
-                  Pool
-                  <span
-                    className="inline-block h-2 w-2 rounded-sm"
-                    style={{ background: "var(--benchmark)" }}
-                  />
-                  vs appearance
-                  <span
-                    className="inline-block h-2 w-2 rounded-sm"
-                    style={{ background: "var(--series-1)" }}
-                  />
-                </span>
-              </th>
+              <th className="py-1 text-right font-medium">Pool share</th>
+              <th className="py-1 text-right font-medium">Appearance share</th>
               <th className="py-1 text-right font-medium">Avg fit</th>
             </tr>
           </thead>
@@ -178,64 +156,25 @@ export default function MonitoringPanel({ apiBase }) {
                 className="border-t"
                 style={{ borderColor: "var(--hairline)" }}
               >
-                <td className="py-1.5 align-top">{row.league}</td>
-                <td className="py-1.5 text-right align-top tabular-nums">
+                <td className="py-1.5">{row.league}</td>
+                <td className="py-1.5 text-right tabular-nums">
                   {row.eligible_players}
                 </td>
-                <td className="py-1.5 pr-4">
-                  {(() => {
-                    // Under-represented when appearances trail the pool by a
-                    // meaningful margin — flag the appearance bar in red.
-                    const under =
-                      row.appearance_share_pct <
-                      row.pool_share_pct - 5;
-                    const appearColor = under
-                      ? "var(--status-critical)"
-                      : "var(--series-1)";
-                    return (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-2 rounded-sm"
-                            style={{
-                              width: `${(row.pool_share_pct / maxShare) * 100}%`,
-                              minWidth: row.pool_share_pct > 0 ? "2px" : "0",
-                              background: "var(--benchmark)",
-                            }}
-                          />
-                          <span
-                            className="tabular-nums"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            {row.pool_share_pct}%
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-2 rounded-sm"
-                            style={{
-                              width: `${(row.appearance_share_pct / maxShare) * 100}%`,
-                              minWidth: row.appearance_share_pct > 0 ? "2px" : "0",
-                              background: appearColor,
-                            }}
-                          />
-                          <span className="tabular-nums">
-                            {row.appearance_share_pct}%
-                          </span>
-                          {row.appearance_share_pct === 0 && (
-                            <span
-                              className="font-medium"
-                              style={{ color: "var(--status-critical)" }}
-                            >
-                              ⚠ never appears
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                <td className="py-1.5 text-right tabular-nums">
+                  {row.pool_share_pct}%
                 </td>
-                <td className="py-1.5 text-right align-top tabular-nums">
+                <td className="py-1.5 text-right tabular-nums">
+                  {row.appearance_share_pct}%
+                  {row.appearance_share_pct === 0 && (
+                    <span
+                      className="ml-1.5 font-medium"
+                      style={{ color: "var(--status-critical)" }}
+                    >
+                      ⚠ never appears
+                    </span>
+                  )}
+                </td>
+                <td className="py-1.5 text-right tabular-nums">
                   {row.avg_fit_score ?? "—"}
                 </td>
               </tr>
