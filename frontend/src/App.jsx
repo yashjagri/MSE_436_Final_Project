@@ -5,6 +5,7 @@ import ComparePanel from "./components/ComparePanel.jsx";
 import MonitoringPanel from "./components/MonitoringPanel.jsx";
 import SkeletonCard from "./components/SkeletonCard.jsx";
 import EmptyState from "./components/EmptyState.jsx";
+import PlayerDetail from "./components/PlayerDetail.jsx";
 
 const API_BASE = "http://localhost:8000";
 
@@ -95,6 +96,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [compareNames, setCompareNames] = useState([]);
+  const [detailPlayer, setDetailPlayer] = useState(null);
   const [rankDeltas, setRankDeltas] = useState({});
   const searchSeq = useRef(0);
   // name -> rank (1-based) from the previous shortlist, so we can show how
@@ -317,6 +319,7 @@ export default function App() {
                     rankDelta={rankDeltas[player.name]}
                     compared={compareNames.includes(player.name)}
                     onToggleCompare={() => toggleCompare(player.name)}
+                    onOpenDetail={() => setDetailPlayer(player)}
                   />
                 ))}
               </div>
@@ -324,6 +327,10 @@ export default function App() {
           </>
         )}
       </main>
+
+      {detailPlayer && (
+        <PlayerDetail player={detailPlayer} onClose={() => setDetailPlayer(null)} />
+      )}
     </div>
   );
 }

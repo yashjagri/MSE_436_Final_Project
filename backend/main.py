@@ -21,6 +21,7 @@ from supabase import create_client
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from model.knn import (InsufficientPlayersError, MIN_MINUTES,  # noqa: E402
                        filter_players, recommend)
+from backend.enrich import enrich  # noqa: E402
 
 load_dotenv()
 
@@ -144,6 +145,15 @@ def recommend_players(request: RecommendRequest):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     response_ms = (time.perf_counter() - started) * 1000
+
+    # Attach descriptive detail (photo, club, national team, physical profile)
+    # from the API-Football cache for the shortlist drill-down. Best-effort:
+    # never let an enrichment failure break the recommendation response.
+    try:
+        for result in results:
+            result["details"] = enrich(result["name"], result.get("age"))
+    except Exception as exc:  # noqa: BLE001 - enrichment is non-essential
+        print(f"enrichment skipped: {exc}")
 
     log_search(request, results, response_ms, df)
     return {"results": results, "response_ms": round(response_ms, 1)}
