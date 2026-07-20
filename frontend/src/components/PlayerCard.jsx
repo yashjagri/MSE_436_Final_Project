@@ -1,5 +1,5 @@
 import FeatureBar from "./FeatureBar.jsx";
-import { FEATURE_LABELS } from "../App.jsx";
+import { FEATURE_LABELS, DECISIONS, DECISION_LABEL, DECISION_COLOR } from "../App.jsx";
 
 // Fit-score badge colours: green above 80, amber 60-80, red below 60.
 const badgeStyle = (score) => {
@@ -12,20 +12,37 @@ const formatMarketValue = (eur) =>
   eur == null ? "—" : `€${(eur / 1_000_000).toFixed(1)}m`;
 
 // One shortlist entry: identity line, fit badge, plain-language reasons,
-// and the player-vs-ideal feature comparison bars.
-export default function PlayerCard({ player, rank, compared, onToggleCompare }) {
+// the player-vs-ideal comparison bars, and a recruitment decision row.
+export default function PlayerCard({
+  player, rank, compared, onToggleCompare, decision, onDecide,
+}) {
+  const status = decision?.status;
   return (
     <div
       className="rounded-xl border p-4"
       style={{
         background: "var(--surface-1)",
-        borderColor: compared ? "var(--series-1)" : "var(--hairline)",
+        // A decided player's border takes its status colour so the verdict
+        // is visible at a glance, even after re-running a different search.
+        borderColor: status
+          ? DECISION_COLOR[status]
+          : compared
+            ? "var(--series-1)"
+            : "var(--hairline)",
       }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             #{rank}
+            {status && (
+              <span
+                className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                style={{ background: DECISION_COLOR[status], color: "#fff" }}
+              >
+                {DECISION_LABEL[status]}
+              </span>
+            )}
           </p>
           <h3 className="text-base font-semibold">{player.name}</h3>
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -95,6 +112,29 @@ export default function PlayerCard({ player, rank, compared, onToggleCompare }) 
           Compare
         </label>
       </div>
+
+      {onDecide && (
+        <div className="mt-3 flex gap-1.5">
+          {DECISIONS.map((d) => {
+            const active = status === d.key;
+            return (
+              <button
+                key={d.key}
+                onClick={() => onDecide(d.key)}
+                className="flex-1 rounded-md border py-1 text-[11px] font-medium transition-colors"
+                title={active ? "Click again to clear" : `Mark as ${d.label}`}
+                style={{
+                  borderColor: active ? d.color : "var(--hairline)",
+                  background: active ? d.color : "transparent",
+                  color: active ? "#fff" : "var(--text-secondary)",
+                }}
+              >
+                {d.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
