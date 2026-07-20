@@ -6,6 +6,7 @@ import MonitoringPanel from "./components/MonitoringPanel.jsx";
 import SkeletonCard from "./components/SkeletonCard.jsx";
 import EmptyState from "./components/EmptyState.jsx";
 import PlayerDetail from "./components/PlayerDetail.jsx";
+import DecisionsPanel from "./components/DecisionsPanel.jsx";
 
 const API_BASE = "http://localhost:8000";
 
@@ -51,6 +52,19 @@ export const FEATURE_LABELS = {
   shots_per90: "Shots per 90",
   shots_on_target_pct: "Shots on target %",
 };
+
+// Recruitment decision statuses (must match backend DECISION_STATUSES).
+// Order defines how they appear as buttons on each card.
+export const DECISIONS = [
+  { key: "pursue", label: "Pursue", color: "var(--status-good)" },
+  { key: "pass", label: "Pass", color: "var(--status-critical)" },
+  { key: "signed", label: "Signed", color: "var(--series-1)" },
+];
+
+export const DECISION_LABEL = Object.fromEntries(
+  DECISIONS.map((d) => [d.key, d.label]));
+export const DECISION_COLOR = Object.fromEntries(
+  DECISIONS.map((d) => [d.key, d.color]));
 
 const defaultWeights = (position) =>
   Object.fromEntries(POSITION_FEATURES[position].map((f) => [f, 1]));
@@ -98,11 +112,64 @@ export default function App() {
   const [compareNames, setCompareNames] = useState([]);
   const [detailPlayer, setDetailPlayer] = useState(null);
   const [rankDeltas, setRankDeltas] = useState({});
+  // Decision log, keyed by join_key, loaded once and kept in sync so the
+  // shortlist remembers verdicts across searches and sessions.
+  const [decisions, setDecisions] = useState({});
   const searchSeq = useRef(0);
   // name -> rank (1-based) from the previous shortlist, so we can show how
   // each player moved when a weight or filter changes. null = no baseline yet
   // (first search after mount or a position change), which suppresses badges.
   const prevRankRef = useRef(null);
+
+  const loadDecisions = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/decisions`);
+      const body = await response.json();
+      const byKey = Object.fromEntries(
+        (body.decisions ?? []).map((d) => [d.join_key, d]));
+      setDecisions(byKey);
+    } catch {
+      // Non-critical: the shortlist still works without decision memory.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDecisions();
+  }, [loadDecisions]);
+
+  // Record or clear a verdict on a player, updating local state optimistically.
+  const decide = useCallback(async (player, status) => {
+    const key = player.join_key;
+    const existing = decisions[key];
+    // Clicking the current status again clears the decision (toggle off).
+    if (existing && existing.status === status) {
+      setDecisions((cur) => {
+        const next = { ...cur };
+        delete next[key];
+        return next;
+      });
+      await fetch(`${API_BASE}/decisions/${encodeURIComponent(key)}`, {
+        method: "DELETE",
+      }).catch(() => {});
+      return;
+    }
+    const record = {
+      join_key: key,
+      player_name: player.name,
+      status,
+      position: player.position ?? null,
+      league: player.league ?? null,
+      market_value_eur: player.market_value_eur ?? null,
+      fit_score: player.fit_score ?? null,
+      note: existing?.note ?? null,
+    };
+    setDecisions((cur) => ({ ...cur, [key]: record }));
+    await fetch(`${API_BASE}/decisions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(record),
+    }).catch(() => {});
+  }, [decisions]);
 
   const handlePositionChange = (next) => {
     setPosition(next);
@@ -187,6 +254,8 @@ export default function App() {
   const compared = (results ?? []).filter((r) =>
     compareNames.includes(r.name));
 
+  const decisionCount = Object.keys(decisions).length;
+
   const tabStyle = (active) => ({
     borderColor: active ? "var(--series-1)" : "transparent",
     color: active ? "var(--text-primary)" : "var(--text-muted)",
@@ -216,7 +285,7 @@ export default function App() {
           className="flex items-center gap-6 border-b"
           style={{ borderColor: "var(--hairline)" }}
         >
-          {["shortlist", "monitoring"].map((tab) => (
+          {["shortlist", "decisions", "monitoring"].map((tab) => (
             <button
               key={tab}
               onClick={() => setView(tab)}
@@ -224,12 +293,26 @@ export default function App() {
               style={tabStyle(view === tab)}
             >
               {tab}
+              {tab === "decisions" && decisionCount > 0 && (
+                <span
+                  className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px]"
+                  style={{ background: "var(--series-1)", color: "#fff" }}
+                >
+                  {decisionCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
         {view === "monitoring" ? (
           <MonitoringPanel apiBase={API_BASE} />
+        ) : view === "decisions" ? (
+          <DecisionsPanel
+            decisions={Object.values(decisions)}
+            onDecide={decide}
+            onRefresh={loadDecisions}
+          />
         ) : (
           <>
             <div className="mt-4 flex items-start justify-between gap-4">
@@ -320,6 +403,8 @@ export default function App() {
                     compared={compareNames.includes(player.name)}
                     onToggleCompare={() => toggleCompare(player.name)}
                     onOpenDetail={() => setDetailPlayer(player)}
+                    decision={decisions[player.join_key]}
+                    onDecide={(status) => decide(player, status)}
                   />
                 ))}
               </div>

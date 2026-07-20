@@ -124,6 +124,20 @@ Data caveats from the free `/players` endpoint: aerial-duel win rate falls
 back to overall duel win rate, per-player clean sheets are unavailable
 (null), and pass completion uses the API's `passes.accuracy` field.
 
+**Step 4 — decision log + backtest tables (one-time / optional):**
+
+```bash
+uv run python pipeline/create_decisions_table.py   # once: decision-log table
+uv run python pipeline/backtest_transfers.py        # optional: model backtest
+```
+
+`create_decisions_table.py` creates the `player_decisions` table that backs
+the recruitment decision log (pursue / pass / signed verdicts). The backtest
+replays every real 2024/25→2025/26 transfer (detected from the two-season
+Transfermarkt cache) and scores how well the model's fit ranking lines up
+with players clubs actually signed, writing `pipeline/cache/backtest.json`.
+Re-run it after adding leagues to widen coverage.
+
 ## 3. Start the backend
 
 ```bash
@@ -132,8 +146,11 @@ uv run uvicorn backend.main:app --reload
 
 Endpoints (docs at http://localhost:8000/docs):
 
-- `POST /recommend` — position, max_budget_eur, min_age, max_age, weights → top-15 shortlist
+- `POST /recommend` — position, budget, age, minutes, leagues, weights → top-15 shortlist
 - `GET /players` — raw player list, optional `position` / `max_budget_eur` filters
+- `GET /decisions`, `POST /decisions`, `DELETE /decisions/{join_key}` — recruitment decision log
+- `GET /backtest` — transfer-backtest summary (from the script above)
+- `GET /monitoring` — response times, fit distribution, league fairness, coverage, freshness
 - `GET /health` — API status and player count
 
 ## 4. Start the frontend
