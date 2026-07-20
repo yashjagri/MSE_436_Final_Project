@@ -1,0 +1,23 @@
+# Render Blueprint for the FastAPI backend.
+# Deploy: push to GitHub, then in Render → New → Blueprint, point at this repo.
+# Set the secret env vars (marked sync: false) in the Render dashboard.
+services:
+  - type: web
+    name: transfer-idss-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      # Comma-separated deployed frontend origin(s). Update after the
+      # frontend is live, e.g. https://transfer-idss.pages.dev
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:3000
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: API_FOOTBALL_KEY
+        sync: false

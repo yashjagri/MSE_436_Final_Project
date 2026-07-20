@@ -8,7 +8,9 @@ import EmptyState from "./components/EmptyState.jsx";
 import PlayerDetail from "./components/PlayerDetail.jsx";
 import DecisionsPanel from "./components/DecisionsPanel.jsx";
 
-const API_BASE = "http://localhost:8000";
+// Backend API base URL. Defaults to the local dev server; set VITE_API_URL
+// at build time (e.g. in Cloudflare Pages / Vercel) to the deployed backend.
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const POSITIONS = [
   "Goalkeeper",

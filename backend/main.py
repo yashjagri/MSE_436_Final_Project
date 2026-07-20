@@ -28,9 +28,16 @@ from backend.enrich import enrich  # noqa: E402
 load_dotenv()
 
 app = FastAPI(title="Transfer IDSS API")
+# Comma-separated list of allowed frontend origins. Defaults to the local
+# dev server; set ALLOWED_ORIGINS in production to the deployed UI URL(s).
+_allowed_origins = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
