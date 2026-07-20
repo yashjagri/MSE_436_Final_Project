@@ -201,6 +201,7 @@ def recommend(players_df, position, max_budget_eur, min_age, max_age, weights,
             for j, feature in enumerate(features)
         ]
         results.append({
+            "join_key": row["join_key"],
             "name": row["name"],
             "position": row["position"],
             "age": int(row["age"]) if pd.notna(row["age"]) else None,

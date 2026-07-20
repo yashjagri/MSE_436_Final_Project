@@ -4,9 +4,11 @@ Serves the KNN recommender over the Supabase ``players`` table.
 Run from the repo root with:  uvicorn backend.main:app --reload
 """
 
+import json
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -49,6 +51,22 @@ class RecommendRequest(BaseModel):
     weights: Dict[str, float] = Field(
         default_factory=dict,
         description="Feature name -> weight between 0 and 3.")
+
+
+DECISION_STATUSES = {"shortlisted", "pursue", "pass", "signed"}
+
+
+class DecisionRequest(BaseModel):
+    """Request body for POST /decisions — a director's verdict on a player."""
+
+    join_key: str
+    player_name: str
+    status: str = Field(description="shortlisted | pursue | pass | signed")
+    position: Optional[str] = None
+    league: Optional[str] = None
+    market_value_eur: Optional[float] = None
+    fit_score: Optional[float] = None
+    note: Optional[str] = None
 
 
 def get_supabase_client():
@@ -177,6 +195,71 @@ def log_search(request, results, response_ms, players_df):
         }).execute()
     except Exception as exc:  # pragma: no cover - non-critical path
         print(f"recommendation_logs insert failed: {exc}")
+
+
+@app.get("/decisions")
+def list_decisions():
+    """Return every tracked recruitment decision, newest first.
+
+    The frontend loads these on startup so the shortlist can show which
+    players the director has already acted on — memory across sessions.
+    """
+    rows = (get_supabase_client().table("player_decisions")
+            .select("*").order("updated_at", desc=True).execute().data)
+    return {"decisions": rows}
+
+
+@app.post("/decisions")
+def upsert_decision(request: DecisionRequest):
+    """Record (or update) the director's verdict on a single player.
+
+    Upserts on ``join_key`` so re-deciding a player overwrites the prior
+    verdict rather than duplicating it.
+    """
+    if request.status not in DECISION_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"status must be one of {sorted(DECISION_STATUSES)}.")
+    record = {
+        "join_key": request.join_key,
+        "player_name": request.player_name,
+        "status": request.status,
+        "position": request.position,
+        "league": request.league,
+        "market_value_eur": (int(request.market_value_eur)
+                             if request.market_value_eur is not None else None),
+        "fit_score": request.fit_score,
+        "note": request.note,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (get_supabase_client().table("player_decisions")
+     .upsert(record, on_conflict="join_key").execute())
+    return {"ok": True, "decision": record}
+
+
+@app.delete("/decisions/{join_key:path}")
+def delete_decision(join_key: str):
+    """Untrack a player, removing them from the decision log entirely."""
+    (get_supabase_client().table("player_decisions")
+     .delete().eq("join_key", join_key).execute())
+    return {"ok": True}
+
+
+@app.get("/backtest")
+def backtest():
+    """Return the transfer-backtest summary written by the backtest script.
+
+    The heavy computation (replaying every real 2024/25->2025/26 transfer)
+    runs offline via ``pipeline/backtest_transfers.py``; this endpoint just
+    serves the cached JSON result so the frontend can show it.
+    """
+    path = Path(__file__).parent.parent / "pipeline" / "cache" / "backtest.json"
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="No backtest yet — run pipeline/backtest_transfers.py.")
+    with open(path) as f:
+        return json.load(f)
 
 
 @app.get("/monitoring")
