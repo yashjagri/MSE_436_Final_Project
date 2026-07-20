@@ -4,7 +4,6 @@ import PlayerCard from "./components/PlayerCard.jsx";
 import ComparePanel from "./components/ComparePanel.jsx";
 import MonitoringPanel from "./components/MonitoringPanel.jsx";
 import DecisionsPanel from "./components/DecisionsPanel.jsx";
-import BacktestPanel from "./components/BacktestPanel.jsx";
 
 const API_BASE = "http://localhost:8000";
 
@@ -254,7 +253,7 @@ export default function App() {
           className="flex items-center gap-6 border-b"
           style={{ borderColor: "var(--hairline)" }}
         >
-          {["shortlist", "decisions", "backtest", "monitoring"].map((tab) => (
+          {["shortlist", "decisions", "monitoring"].map((tab) => (
             <button
               key={tab}
               onClick={() => setView(tab)}
@@ -276,8 +275,6 @@ export default function App() {
 
         {view === "monitoring" ? (
           <MonitoringPanel apiBase={API_BASE} />
-        ) : view === "backtest" ? (
-          <BacktestPanel apiBase={API_BASE} />
         ) : view === "decisions" ? (
           <DecisionsPanel
             decisions={Object.values(decisions)}
